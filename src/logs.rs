@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
+use crate::RESOURCE;
 use opentelemetry_appender_tracing::layer;
 use opentelemetry_sdk::logs::{BatchConfig, BatchLogProcessor, LoggerProvider};
 use opentelemetry_sdk::runtime::Tokio;
+use opentelemetry_stdout::LogExporter;
 use tracing_subscriber::layer::SubscriberExt as _;
-use tracing_subscriber::prelude::*;
-
-use crate::RESOURCE;
+use tracing_subscriber::{prelude::*, EnvFilter};
 
 /// The global `Logger` provider singleton.
 static GLOBAL_LOGGER_PROVIDER: OnceLock<LoggerProvider> = OnceLock::new();
@@ -24,16 +24,18 @@ pub fn shutdown_logger_provider() {
     }
 }
 
-pub(crate) fn init_logs(logs_batch_config: Option<BatchConfig>) -> anyhow::Result<()> {
+pub(crate) fn init_logs(
+    use_stdout_exporter: bool,
+    logs_batch_config: Option<BatchConfig>,
+) -> anyhow::Result<()> {
     let mut logger_provider = LoggerProvider::builder();
-    if cfg!(debug_assertions) {
-        let exporter = opentelemetry_stdout::LogExporter::default();
+    if use_stdout_exporter {
+        let exporter = LogExporter::default();
         if let Some(logs_batch_config) = logs_batch_config {
             let batch = BatchLogProcessor::builder(exporter, Tokio)
                 .with_batch_config(logs_batch_config)
                 .build();
             logger_provider = logger_provider.with_log_processor(batch);
-            // logger_provider = logger_provider.with_batch_exporter(exporter, Tokio);
         } else {
             logger_provider = logger_provider.with_simple_exporter(exporter);
         }
@@ -46,7 +48,6 @@ pub(crate) fn init_logs(logs_batch_config: Option<BatchConfig>) -> anyhow::Resul
                 .with_batch_config(logs_batch_config)
                 .build();
             logger_provider = logger_provider.with_log_processor(batch);
-            // logger_provider = logger_provider.with_batch_exporter(exporter, Tokio);
         } else {
             logger_provider = logger_provider.with_simple_exporter(exporter);
         }
@@ -55,6 +56,11 @@ pub(crate) fn init_logs(logs_batch_config: Option<BatchConfig>) -> anyhow::Resul
         .with_resource(RESOURCE.get().unwrap().clone())
         .build();
     tracing_subscriber::registry()
+        .with(
+            EnvFilter::try_from_default_env()
+                .or_else(|_| EnvFilter::try_new("info"))
+                .unwrap(),
+        )
         .with(layer::OpenTelemetryTracingBridge::new(&logger_provider))
         .try_init()?;
 
