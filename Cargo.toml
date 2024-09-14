@@ -1,7 +1,15 @@
 [package]
 name = "myotel"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+description = "A foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace."
+authors = ["Andeya Lee <andeyalee@outlook.com>"]
+license = "MIT"
+categories = ["development-tools::system-observability"]
+keywords = ["OpenTelemetry", "tracing", "logs", "metrics"]
+readme = "README.md"
+repository = "https://github.com/andeya/myotel"
+
 
 [dependencies]
 opentelemetry = { version = "0.25" }
@@ -22,13 +30,3 @@ anyhow = "1"
 
 opentelemetry-stdout = "0.25"
 getset = { git = "https://github.com/andeya/getset.git" }
-
-
-[dev-dependencies]
-# tokio = { version = "1" }
-# opentelemetry = { version = "0.25" }
-# tracing-subscriber = "0.3"
-# opentelemetry_sdk = { version = "0.25", features = ["rt-tokio"] }
-# opentelemetry-jaeger-propagator = { version = "0.25" }
-# opentelemetry-otlp = { version = "0.25", features = ["http-json"] }
-# tracing-opentelemetry = "0.26"
