@@ -5,7 +5,7 @@ edition = "2021"
 description = "A foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace."
 authors = ["Andeya Lee <andeyalee@outlook.com>"]
 license = "MIT"
-categories = ["development-tools::system-observability"]
+categories = ["development-tools::debugging"]
 keywords = ["OpenTelemetry", "tracing", "logs", "metrics"]
 readme = "README.md"
 repository = "https://github.com/andeya/myotel"
@@ -19,14 +19,12 @@ opentelemetry_sdk = { version = "0.25", features = [
     "rt-tokio",
 ] }
 opentelemetry-appender-tracing = "0.25.0"
-# opentelemetry-jaeger-propagator = { version = "0.25" }
 opentelemetry-otlp = { version = "0.25", features = ["http-json"] }
-tracing-opentelemetry = "0.26"
 tracing-subscriber = { version = "0.3", features = ["default", "env-filter"] }
-tracing = "0.1"
-
-tokio = "1"
 anyhow = "1"
-
 opentelemetry-stdout = "0.25"
-getset = { git = "https://github.com/andeya/getset.git" }
+getset = { package = "getset2", version = "0.2" }
+
+[dev-dependencies]
+tracing = "0.1"
+tokio = "1"

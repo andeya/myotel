@@ -17,10 +17,10 @@ This is a foolproof best practice for initializing the integration of OpenTeleme
 use tracing::{info, warn};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    init_otel(InitConfig::default()).await?;
+    myotel::init_otel(myotel::InitConfig::default()).await?;
     info!("This is an info log message with OpenTelemetry integration");
     warn!("This is a warning log message with OpenTelemetry integration");
-    shutdown_logger_provider();
+    myotel::shutdown_logger_provider();
     Ok(())
 }
 ```
@@ -33,9 +33,9 @@ use opentelemetry::global;
 use opentelemetry::KeyValue;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env::set_var("OTEL_METRIC_EXPORT_INTERVAL", "1");
-    env::set_var("OTEL_METRIC_EXPORT_TIMEOUT", "1");
-    init_otel(InitConfig::default()).await?;
+    std::env::set_var("OTEL_METRIC_EXPORT_INTERVAL", "1");
+    std::env::set_var("OTEL_METRIC_EXPORT_TIMEOUT", "1");
+    myotel::init_otel(myotel::InitConfig::default()).await?;
     let meter = global::meter("stdout-example");
     let counter = meter.u64_counter("example_counter").init();
     counter.add(1, &[KeyValue::new("name", "apple"), KeyValue::new("color", "green")]);
@@ -50,7 +50,7 @@ use opentelemetry::global;
 use opentelemetry::trace::{Span, Tracer};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    init_otel(InitConfig::default()).await?;
+    myotel::init_otel(myotel::InitConfig::default()).await?;
     let tracer = global::tracer("trace-example");
     let mut span = tracer.start("example-span");
     span.set_attribute(KeyValue::new("key", "value"));
