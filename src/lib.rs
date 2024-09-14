@@ -47,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
 
 ```rust
 use opentelemetry::global;
+use opentelemetry::KeyValue;
 use opentelemetry::trace::{Span, Tracer};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
