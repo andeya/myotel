@@ -6,12 +6,13 @@ use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_stdout::MetricsExporter;
 
+// OTEL_METRIC_EXPORT_INTERVAL
+// OTEL_METRIC_EXPORT_TIMEOUT
+
 pub(crate) fn init_metrics(use_stdout_exporter: bool) -> anyhow::Result<()> {
-    let mut meter_provider = SdkMeterProvider::builder();
-    if use_stdout_exporter {
+    let periodic_reader = if use_stdout_exporter {
         let exporter = MetricsExporter::default();
-        let reader = PeriodicReader::builder(exporter, Tokio).build();
-        meter_provider = meter_provider.with_reader(reader);
+        PeriodicReader::builder(exporter, Tokio).build()
     } else {
         let exporter = opentelemetry_otlp::new_exporter()
             .tonic()
@@ -19,11 +20,11 @@ pub(crate) fn init_metrics(use_stdout_exporter: bool) -> anyhow::Result<()> {
                 Box::new(DefaultAggregationSelector::new()),
                 Box::new(DefaultTemporalitySelector::new()),
             )?;
-        let reader = PeriodicReader::builder(exporter, Tokio).build();
-        meter_provider = meter_provider.with_reader(reader);
-    }
-    let meter_provider = meter_provider
+        PeriodicReader::builder(exporter, Tokio).build()
+    };
+    let meter_provider = SdkMeterProvider::builder()
         .with_resource(RESOURCE.get().unwrap().clone())
+        .with_reader(periodic_reader)
         .build();
     global::set_meter_provider(meter_provider);
     Ok(())

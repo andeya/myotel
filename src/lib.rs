@@ -64,6 +64,8 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
 
 #[cfg(test)]
 mod tests {
+    use std::{env, time::Duration};
+
     use super::*;
     use opentelemetry::{
         global,
@@ -80,6 +82,8 @@ mod tests {
 
     #[tokio::test]
     async fn emit_metrics() {
+        env::set_var("OTEL_METRIC_EXPORT_INTERVAL", "1");
+        env::set_var("OTEL_METRIC_EXPORT_TIMEOUT", "1");
         init_otel(InitConfig::default()).await.unwrap();
         let meter = global::meter("stdout-example");
         let c = meter.u64_counter("example_counter").init();
@@ -155,6 +159,7 @@ mod tests {
                 KeyValue::new("color", "yellow"),
             ],
         );
+        tokio::time::sleep(Duration::from_secs(2)).await;
     }
 
     #[tokio::test]
