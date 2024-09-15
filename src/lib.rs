@@ -9,73 +9,204 @@ This is a foolproof best practice for initializing the integration of OpenTeleme
 -   **Metrics**: Flexible metric collection supporting various measurement types.
 -   **Trace**: Rich distributed tracing tools for creating spans, adding events, and linking spans.
 
+## Install
+
+Run the following Cargo command in your project directory:
+
+```sh
+cargo add myotel
+```
+
+Or add the following line to your Cargo.toml:
+
+```sh
+myotel = "0.1"
+```
+
 ## Examples
 
-### Logs
-
 ```rust
-use tracing::{info, warn};
+extern crate myotel;
+use myotel::*;
+use std::env;
+
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    myotel::init_otel(myotel::InitConfig::default()).await?;
+async fn main() {
+    init_otel(InitConfig::default()).await.unwrap();
+    emit_log().await;
+    println!("===========================================================");
+    emit_span().await;
+    println!("===========================================================");
+    emit_metrics().await;
+    shutdown_all_providers();
+}
+
+async fn emit_log() {
     info!("This is an info log message with OpenTelemetry integration");
     warn!("This is a warning log message with OpenTelemetry integration");
-    myotel::shutdown_logger_provider();
-    Ok(())
 }
-```
 
-## Metrics
+async fn emit_span() {
+    let tracer = tracer_provider()
+        .tracer_builder("trace-example")
+        .with_version("v1")
+        .with_schema_url("schema_url")
+        .with_attributes([KeyValue::new("scope_key", "scope_value")])
+        .build();
+    let mut span1 = tracer.start("example-span-1");
+    span1.set_attribute(KeyValue::new("attribute_key1", "attribute_value1"));
+    span1.set_attribute(KeyValue::new("attribute_key2", "attribute_value2"));
+    span1.add_event(
+        "example-event-name-1",
+        vec![KeyValue::new("event_attribute1", "event_value1")],
+    );
+    span1.add_link(
+        SpanContext::new(
+            TraceId::from_hex("58406520a006649127e371903a2de979").expect("invalid"),
+            SpanId::from_hex("b6d7d7f6d7d6d7f6").expect("invalid"),
+            TraceFlags::default(),
+            false,
+            TraceState::NONE,
+        ),
+        vec![
+            KeyValue::new("link_attribute1", "link_value1"),
+            KeyValue::new("link_attribute2", "link_value2"),
+        ],
+    );
 
-```rust
-use std::env;
-use opentelemetry::global;
-use opentelemetry::KeyValue;
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    std::env::set_var("OTEL_METRIC_EXPORT_INTERVAL", "1");
-    std::env::set_var("OTEL_METRIC_EXPORT_TIMEOUT", "1");
-    myotel::init_otel(myotel::InitConfig::default()).await?;
-    let meter = global::meter("stdout-example");
-    let counter = meter.u64_counter("example_counter").init();
-    counter.add(1, &[KeyValue::new("name", "apple"), KeyValue::new("color", "green")]);
-    Ok(())
+    span1.add_link(
+        SpanContext::new(
+            TraceId::from_hex("23401120a001249127e371903f2de971").expect("invalid"),
+            SpanId::from_hex("cd37d765d743d7f6").expect("invalid"),
+            TraceFlags::default(),
+            false,
+            TraceState::NONE,
+        ),
+        vec![
+            KeyValue::new("link_attribute1", "link_value1"),
+            KeyValue::new("link_attribute2", "link_value2"),
+        ],
+    );
+    span1.end();
+
+    let _ = {
+        info!("event-span-3");
+    }
+    .instrument(info_span!("instrument span"));
+
+    info!("event-name-20");
+    let span2 = span!(Level::INFO, "example-span-2");
+    let _enter = span2.enter();
+    info!("event-name-2");
 }
-```
 
-## Trace
+async fn emit_metrics() {
+    env::set_var("OTEL_METRIC_EXPORT_INTERVAL", "1");
+    env::set_var("OTEL_METRIC_EXPORT_TIMEOUT", "1");
+    let meter = meter_provider().meter("stdout-example");
+    // let meter = meter("stdout-example");
+    let c = meter.u64_counter("example_counter").init();
+    c.add(
+        1,
+        &[
+            KeyValue::new("name", "apple"),
+            KeyValue::new("color", "green"),
+        ],
+    );
+    c.add(
+        1,
+        &[
+            KeyValue::new("name", "apple"),
+            KeyValue::new("color", "green"),
+        ],
+    );
+    c.add(
+        2,
+        &[
+            KeyValue::new("name", "apple"),
+            KeyValue::new("color", "red"),
+        ],
+    );
+    c.add(
+        1,
+        &[
+            KeyValue::new("name", "banana"),
+            KeyValue::new("color", "yellow"),
+        ],
+    );
+    c.add(
+        11,
+        &[
+            KeyValue::new("name", "banana"),
+            KeyValue::new("color", "yellow"),
+        ],
+    );
 
-```rust
-use opentelemetry::global;
-use opentelemetry::KeyValue;
-use opentelemetry::trace::{Span, Tracer};
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    myotel::init_otel(myotel::InitConfig::default()).await?;
-    let tracer = global::tracer("trace-example");
-    let mut span = tracer.start("example-span");
-    span.set_attribute(KeyValue::new("key", "value"));
-    span.add_event("event-name", vec![KeyValue::new("event_key", "event_value")]);
-    span.end();
-    Ok(())
+    let h = meter.f64_histogram("example_histogram").init();
+    h.record(
+        1.0,
+        &[
+            KeyValue::new("name", "apple"),
+            KeyValue::new("color", "green"),
+        ],
+    );
+    h.record(
+        1.0,
+        &[
+            KeyValue::new("name", "apple"),
+            KeyValue::new("color", "green"),
+        ],
+    );
+    h.record(
+        2.0,
+        &[
+            KeyValue::new("name", "apple"),
+            KeyValue::new("color", "red"),
+        ],
+    );
+    h.record(
+        1.0,
+        &[
+            KeyValue::new("name", "banana"),
+            KeyValue::new("color", "yellow"),
+        ],
+    );
+    h.record(
+        11.0,
+        &[
+            KeyValue::new("name", "banana"),
+            KeyValue::new("color", "yellow"),
+        ],
+    );
 }
 ```
 */
-
 mod logs;
 mod metrics;
 mod trace;
 
-pub use logs::{logger_provider, shutdown_logger_provider};
-pub use opentelemetry::global::{
-    meter, meter_provider, meter_with_version, shutdown_tracer_provider, tracer, tracer_provider,
+pub use logs::logger_provider;
+pub use metrics::meter_provider;
+pub use opentelemetry::global::{meter, meter_with_version, tracer, tracer_provider};
+pub use opentelemetry::metrics::MeterProvider as _;
+pub use opentelemetry::trace::{
+    Span as _, SpanContext, SpanId, TraceFlags, TraceId, TraceState, Tracer as _,
+    TracerProvider as _,
 };
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::Resource;
+pub use opentelemetry::{
+    Array, InstrumentationLibrary, InstrumentationLibraryBuilder, Key, KeyValue, Value,
+};
 pub use opentelemetry_sdk::{
-    logs::BatchConfig as LogsBatchConfig, trace::BatchConfig as TraceBatchConfig,
+    logs::BatchConfig as BatchLogConfig, trace::BatchConfig as BatchTraceConfig,
 };
+pub use tracing::*;
+
+use opentelemetry::global;
+use opentelemetry_sdk::Resource;
 use std::sync::{Mutex, OnceLock};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::EnvFilter;
 
 static RESOURCE: OnceLock<Resource> = OnceLock::new();
 
@@ -83,19 +214,19 @@ static RESOURCE: OnceLock<Resource> = OnceLock::new();
 #[derive(Debug, getset::WithSetters)]
 #[getset(set_with = "pub")]
 pub struct InitConfig {
-    service_name: String,
-    logs_batch_config: Option<LogsBatchConfig>,
-    trace_batch_config: Option<TraceBatchConfig>,
+    // service_name: String,
     stdout_exporter: bool,
+    batch_log_config: Option<BatchLogConfig>,
+    batch_trace_config: Option<BatchTraceConfig>,
 }
 
 impl Default for InitConfig {
     fn default() -> Self {
         Self {
-            service_name: "myotel".to_owned(),
-            logs_batch_config: Default::default(),
+            // service_name: "myotel".to_owned(),
             stdout_exporter: cfg!(debug_assertions),
-            trace_batch_config: Default::default(),
+            batch_log_config: Default::default(),
+            batch_trace_config: Default::default(),
         }
     }
 }
@@ -111,170 +242,57 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
     *guard = true;
 
     RESOURCE
-        .set(Resource::default().merge(&Resource::new(vec![KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            init_config.service_name,
-        )])))
+        .set(Resource::default().merge(&Resource::new(vec![
+            KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+                env!("CARGO_PKG_NAME"),
+            ),
+            KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+                env!("CARGO_PKG_VERSION"),
+            ),
+        ])))
         .unwrap();
-    logs::init_logs(init_config.stdout_exporter, init_config.logs_batch_config)?;
-    trace::init_trace(init_config.stdout_exporter, init_config.trace_batch_config)?;
+    init_logs_and_trace(
+        init_config.stdout_exporter,
+        init_config.batch_log_config,
+        init_config.batch_trace_config,
+    )?;
     metrics::init_metrics(init_config.stdout_exporter)?;
     Ok(true)
 }
 
-#[cfg(test)]
-mod tests {
-    use std::{env, time::Duration};
+fn init_logs_and_trace(
+    use_stdout_exporter: bool,
+    batch_log_config: Option<BatchLogConfig>,
+    batch_trace_config: Option<BatchTraceConfig>,
+) -> anyhow::Result<()> {
+    let logger_layer = logs::init_logs(use_stdout_exporter, batch_log_config)?;
 
-    use super::*;
-    use opentelemetry::{
-        global,
-        trace::{Span, Tracer},
-    };
-    use tracing::{info, warn};
-    #[tokio::test]
-    async fn emit_log() {
-        init_otel(InitConfig::default()).await.unwrap();
-        info!("This is an info log message with OpenTelemetry integration");
-        warn!("This is a warning log message with OpenTelemetry integration");
-        shutdown_logger_provider();
-    }
+    let env_filter_layer =
+        EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
 
-    #[tokio::test]
-    async fn emit_metrics() {
-        env::set_var("OTEL_METRIC_EXPORT_INTERVAL", "1");
-        env::set_var("OTEL_METRIC_EXPORT_TIMEOUT", "1");
-        init_otel(InitConfig::default()).await.unwrap();
-        let meter = global::meter("stdout-example");
-        let c = meter.u64_counter("example_counter").init();
-        c.add(
-            1,
-            &[
-                KeyValue::new("name", "apple"),
-                KeyValue::new("color", "green"),
-            ],
-        );
-        c.add(
-            1,
-            &[
-                KeyValue::new("name", "apple"),
-                KeyValue::new("color", "green"),
-            ],
-        );
-        c.add(
-            2,
-            &[
-                KeyValue::new("name", "apple"),
-                KeyValue::new("color", "red"),
-            ],
-        );
-        c.add(
-            1,
-            &[
-                KeyValue::new("name", "banana"),
-                KeyValue::new("color", "yellow"),
-            ],
-        );
-        c.add(
-            11,
-            &[
-                KeyValue::new("name", "banana"),
-                KeyValue::new("color", "yellow"),
-            ],
-        );
+    // let fmt_layer = tracing_subscriber::fmt::layer()
+    //     .with_target(true)
+    //     .with_thread_ids(true)
+    //     .pretty();
 
-        let h = meter.f64_histogram("example_histogram").init();
-        h.record(
-            1.0,
-            &[
-                KeyValue::new("name", "apple"),
-                KeyValue::new("color", "green"),
-            ],
-        );
-        h.record(
-            1.0,
-            &[
-                KeyValue::new("name", "apple"),
-                KeyValue::new("color", "green"),
-            ],
-        );
-        h.record(
-            2.0,
-            &[
-                KeyValue::new("name", "apple"),
-                KeyValue::new("color", "red"),
-            ],
-        );
-        h.record(
-            1.0,
-            &[
-                KeyValue::new("name", "banana"),
-                KeyValue::new("color", "yellow"),
-            ],
-        );
-        h.record(
-            11.0,
-            &[
-                KeyValue::new("name", "banana"),
-                KeyValue::new("color", "yellow"),
-            ],
-        );
-        tokio::time::sleep(Duration::from_secs(2)).await;
-    }
+    let tracer = trace::init_trace(use_stdout_exporter, batch_trace_config)?;
+    let tracer_layer = OpenTelemetryLayer::new(tracer);
 
-    #[tokio::test]
-    async fn emit_span() {
-        init_otel(InitConfig::default()).await.unwrap();
-        use opentelemetry::trace::{
-            SpanContext, SpanId, TraceFlags, TraceId, TraceState, TracerProvider,
-        };
+    let subscriber = tracing_subscriber::registry()
+        .with(env_filter_layer)
+        // .with(fmt_layer)
+        .with(logger_layer)
+        .with(tracer_layer);
+    tracing::subscriber::set_global_default(subscriber)?;
 
-        let tracer = global::tracer_provider()
-            .tracer_builder("trace-example")
-            .with_version("v1")
-            .with_schema_url("schema_url")
-            .with_attributes([KeyValue::new("scope_key", "scope_value")])
-            .build();
-        let mut span1 = tracer.start("example-span-1");
-        span1.set_attribute(KeyValue::new("attribute_key1", "attribute_value1"));
-        span1.set_attribute(KeyValue::new("attribute_key2", "attribute_value2"));
-        span1.add_event(
-            "example-event-name-1",
-            vec![KeyValue::new("event_attribute1", "event_value1")],
-        );
-        span1.add_link(
-            SpanContext::new(
-                TraceId::from_hex("58406520a006649127e371903a2de979").expect("invalid"),
-                SpanId::from_hex("b6d7d7f6d7d6d7f6").expect("invalid"),
-                TraceFlags::default(),
-                false,
-                TraceState::NONE,
-            ),
-            vec![
-                KeyValue::new("link_attribute1", "link_value1"),
-                KeyValue::new("link_attribute2", "link_value2"),
-            ],
-        );
+    Ok(())
+}
 
-        span1.add_link(
-            SpanContext::new(
-                TraceId::from_hex("23401120a001249127e371903f2de971").expect("invalid"),
-                SpanId::from_hex("cd37d765d743d7f6").expect("invalid"),
-                TraceFlags::default(),
-                false,
-                TraceState::NONE,
-            ),
-            vec![
-                KeyValue::new("link_attribute1", "link_value1"),
-                KeyValue::new("link_attribute2", "link_value2"),
-            ],
-        );
-        span1.end();
-        let mut span2 = tracer.start("example-span-2");
-        span2.add_event(
-            "example-event-name-2",
-            vec![KeyValue::new("event_attribute2", "event_value2")],
-        );
-        span2.end();
-    }
+/// Shut down the current logger, tracer and meter providers.
+pub fn shutdown_all_providers() {
+    logs::shutdown_logger_provider();
+    global::shutdown_tracer_provider();
+    metrics::shutdown_meter_provider();
 }

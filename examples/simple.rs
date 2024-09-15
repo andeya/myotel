@@ -1,30 +1,3 @@
-# myotel
-
-This is a foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace.
-
-## Features
-
--   **Logs**: Advanced logging capabilities integrated with OpenTelemetry.
--   **Metrics**: Flexible metric collection supporting various measurement types.
--   **Trace**: Rich distributed tracing tools for creating spans, adding events, and linking spans.
-
-## Install
-
-Run the following Cargo command in your project directory:
-
-```sh
-cargo add myotel
-```
-
-Or add the following line to your Cargo.toml:
-
-```sh
-myotel = "0.1"
-```
-
-## Examples
-
-```rust
 extern crate myotel;
 use myotel::*;
 use std::env;
@@ -178,4 +151,3 @@ async fn emit_metrics() {
         ],
     );
 }
-```
