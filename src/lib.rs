@@ -80,16 +80,12 @@ use std::sync::{Mutex, OnceLock};
 static RESOURCE: OnceLock<Resource> = OnceLock::new();
 
 /// OpenTelemetry initialization configuration.
-#[derive(Debug, getset::WithSetters, getset::Getters, getset::CopyGetters)]
-#[getset(set)]
+#[derive(Debug, getset::WithSetters)]
+#[getset(set_with = "pub")]
 pub struct InitConfig {
-    #[getset(get, set_with)]
     service_name: String,
-    #[getset(get, set_with)]
     logs_batch_config: Option<LogsBatchConfig>,
-    #[getset(get, set_with)]
     trace_batch_config: Option<TraceBatchConfig>,
-    #[getset(get_copy, set_with)]
     stdout_exporter: bool,
 }
 
