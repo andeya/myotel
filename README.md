@@ -2,6 +2,10 @@
 
 This is a foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace.
 
+[![Crates.io](https://img.shields.io/crates/v/myotel)](https://crates.io/crates/myotel)
+[![Documentation](https://shields.io/docsrs/myotel)](https://docs.rs/myotel)
+[![License](https://img.shields.io/crates/l/myotel)](https://github.com/andeya/myotel?tab=MIT-1-ov-file)
+
 ## Features
 
 -   **Logs**: Advanced logging capabilities integrated with OpenTelemetry.
