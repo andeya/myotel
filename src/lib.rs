@@ -181,6 +181,9 @@ async fn emit_metrics() {
 }
 ```
 */
+
+#![deny(missing_docs)]
+
 mod logs;
 mod metrics;
 mod trace;
@@ -229,10 +232,17 @@ static RESOURCE: OnceLock<Resource> = OnceLock::new();
 #[derive(Debug, getset::WithSetters)]
 #[getset(set_with = "pub")]
 pub struct InitConfig {
+    /// Service name
     service_name: String,
+    /// Service version
     service_version: String,
+    /// Whether to use the standard output.
+    /// The standard output is used by default in debug mode,
+    /// and OTLP is used in release mode.
     stdout_exporter: bool,
+    /// If the batch log configuration is configured, batch reporting will be enabled.
     batch_log_config: Option<BatchLogConfig>,
+    /// If the batch trace configuration is configured, batch reporting will be enabled.
     batch_trace_config: Option<BatchTraceConfig>,
 }
 
