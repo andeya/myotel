@@ -4,7 +4,7 @@ use std::env;
 
 #[tokio::main]
 async fn main() {
-    init_otel(InitConfig::default()).await.unwrap();
+    init_otel(default_config!()).await.unwrap();
     emit_log().await;
     println!("===========================================================");
     emit_span().await;

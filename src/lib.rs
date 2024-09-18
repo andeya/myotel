@@ -32,7 +32,7 @@ use std::env;
 
 #[tokio::main]
 async fn main() {
-    init_otel(InitConfig::default()).await.unwrap();
+    init_otel(default_config!()).await.unwrap();
     emit_log().await;
     println!("===========================================================");
     emit_span().await;
@@ -229,21 +229,32 @@ static RESOURCE: OnceLock<Resource> = OnceLock::new();
 #[derive(Debug, getset::WithSetters)]
 #[getset(set_with = "pub")]
 pub struct InitConfig {
-    // service_name: String,
+    service_name: String,
+    service_version: String,
     stdout_exporter: bool,
     batch_log_config: Option<BatchLogConfig>,
     batch_trace_config: Option<BatchTraceConfig>,
 }
 
-impl Default for InitConfig {
-    fn default() -> Self {
+impl InitConfig {
+    pub fn new() -> Self {
         Self {
-            // service_name: "myotel".to_owned(),
+            service_name: Default::default(),
+            service_version: Default::default(),
             stdout_exporter: cfg!(debug_assertions),
             batch_log_config: Default::default(),
             batch_trace_config: Default::default(),
         }
     }
+}
+
+#[macro_export]
+macro_rules! default_config {
+    () => {
+        InitConfig::new()
+            .with_service_name(env!("CARGO_PKG_NAME").to_owned())
+            .with_service_version(env!("CARGO_PKG_VERSION").to_owned())
+    };
 }
 
 static INIT: Mutex<bool> = Mutex::new(false);
@@ -256,24 +267,30 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
     }
     *guard = true;
 
+    let mut kvs = vec![];
+    if !init_config.service_name.is_empty() {
+        kvs.push(KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+            init_config.service_name,
+        ));
+    }
+    if !init_config.service_version.is_empty() {
+        kvs.push(KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+            init_config.service_version,
+        ));
+    }
     RESOURCE
-        .set(Resource::default().merge(&Resource::new(vec![
-            KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-                env!("CARGO_PKG_NAME"),
-            ),
-            KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
-                env!("CARGO_PKG_VERSION"),
-            ),
-        ])))
+        .set(Resource::default().merge(&Resource::new(kvs)))
         .unwrap();
+
     init_logs_and_trace(
         init_config.stdout_exporter,
         init_config.batch_log_config,
         init_config.batch_trace_config,
     )?;
     metrics::init_metrics(init_config.stdout_exporter)?;
+
     Ok(true)
 }
 
