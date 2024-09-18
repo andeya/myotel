@@ -237,6 +237,7 @@ pub struct InitConfig {
 }
 
 impl InitConfig {
+    /// Create a new InitConfig.
     pub fn new() -> Self {
         Self {
             service_name: Default::default(),
@@ -248,6 +249,7 @@ impl InitConfig {
     }
 }
 
+/// Create the default InitConfig.
 #[macro_export]
 macro_rules! default_config {
     () => {
