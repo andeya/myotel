@@ -187,8 +187,11 @@ mod trace;
 
 pub use logs::logger_provider;
 pub use metrics::meter_provider;
-pub use opentelemetry::global::{meter, meter_with_version, tracer, tracer_provider};
-pub use opentelemetry::metrics::MeterProvider as _;
+use opentelemetry::global;
+pub use opentelemetry::global::{
+    meter, meter_with_version, tracer, tracer_provider, BoxedSpan, BoxedTracer, GlobalMeterProvider,
+};
+pub use opentelemetry::metrics::{Meter, MeterProvider as _};
 pub use opentelemetry::trace::{
     Span as _, SpanContext, SpanId, TraceFlags, TraceId, TraceState, Tracer as _,
     TracerProvider as _,
@@ -196,17 +199,29 @@ pub use opentelemetry::trace::{
 pub use opentelemetry::{
     Array, InstrumentationLibrary, InstrumentationLibraryBuilder, Key, KeyValue, Value,
 };
+use opentelemetry_sdk::Resource;
 pub use opentelemetry_sdk::{
     logs::BatchConfig as BatchLogConfig, trace::BatchConfig as BatchTraceConfig,
 };
-pub use tracing::*;
-
-use opentelemetry::global;
-use opentelemetry_sdk::Resource;
 use std::sync::{Mutex, OnceLock};
+
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::EnvFilter;
+
+pub use _tracing::*;
+
+mod _tracing {
+    pub use tracing;
+    // Attribute Macros
+    pub use tracing::instrument;
+    // Macros
+    pub use tracing::{
+        debug, debug_span, enabled, error, error_span, event, event_enabled, info, info_span, span,
+        span_enabled, trace, trace_span, warn, warn_span,
+    };
+    pub use tracing::{Instrument, Level};
+}
 
 static RESOURCE: OnceLock<Resource> = OnceLock::new();
 
