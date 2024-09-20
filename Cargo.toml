@@ -1,6 +1,6 @@
 [package]
 name = "myotel"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 description = "A foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace."
 authors = ["Andeya Lee <andeyalee@outlook.com>"]
@@ -13,12 +13,12 @@ repository = "https://github.com/andeya/myotel"
 
 [dependencies]
 opentelemetry = { version = "0.25" }
-opentelemetry-semantic-conventions = "0.25.0"
+opentelemetry-semantic-conventions = "0.25"
 opentelemetry_sdk = { version = "0.25", features = [
     "logs_level_enabled",
     "rt-tokio",
 ] }
-opentelemetry-appender-tracing = { version = "0.25.0", features = [
+opentelemetry-appender-tracing = { version = "0.25", features = [
     "experimental_metadata_attributes",
     "logs_level_enabled",
 ] }
@@ -27,7 +27,7 @@ tracing-subscriber = { version = "0.3", features = ["default", "env-filter"] }
 anyhow = "1"
 opentelemetry-stdout = "0.25"
 getset2 = "0.2"
-tracing-opentelemetry = "0.26.0"
+tracing-opentelemetry = "0.26"
 tracing = "0.1"
 sulid = "0.6"
 
