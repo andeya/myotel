@@ -1,8 +1,9 @@
+use opentelemetry::global;
 pub use opentelemetry::trace::SpanBuilder;
 use opentelemetry::trace::Tracer as _;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::trace::{SpanId, TraceId};
-use opentelemetry::{global, Context};
+pub use opentelemetry::Context;
 use opentelemetry_sdk::runtime::Tokio;
 pub use opentelemetry_sdk::trace::IdGenerator;
 pub use opentelemetry_sdk::trace::RandomIdGenerator;
