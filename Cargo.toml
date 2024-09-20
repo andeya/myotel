@@ -1,6 +1,6 @@
 [package]
 name = "myotel"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 description = "A foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace."
 authors = ["Andeya Lee <andeyalee@outlook.com>"]
@@ -26,9 +26,10 @@ opentelemetry-otlp = { version = "0.25", features = ["http-json"] }
 tracing-subscriber = { version = "0.3", features = ["default", "env-filter"] }
 anyhow = "1"
 opentelemetry-stdout = "0.25"
-getset = { package = "getset2", version = "0.2" }
+getset2 = "0.2"
 tracing-opentelemetry = "0.26.0"
 tracing = "0.1"
+sulid = "0.6"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread"] }

@@ -19,13 +19,7 @@ async fn emit_log() {
 }
 
 async fn emit_span() {
-    let tracer = tracer_provider()
-        .tracer_builder("trace-example")
-        .with_version("v1")
-        .with_schema_url("schema_url")
-        .with_attributes([KeyValue::new("scope_key", "scope_value")])
-        .build();
-    let mut span1 = tracer.start("example-span-1");
+    let mut span1 = tracer_span(SpanBuilder::from_name("example-span-1"), None);
     span1.set_attribute(KeyValue::new("attribute_key1", "attribute_value1"));
     span1.set_attribute(KeyValue::new("attribute_key2", "attribute_value2"));
     span1.add_event(

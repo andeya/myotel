@@ -2,7 +2,8 @@ use crate::RESOURCE;
 
 use opentelemetry::global;
 use opentelemetry_sdk::metrics::reader::{DefaultAggregationSelector, DefaultTemporalitySelector};
-use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
+use opentelemetry_sdk::metrics::PeriodicReader;
+pub use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_stdout::MetricsExporter;
 use std::sync::OnceLock;

@@ -47,13 +47,7 @@ async fn emit_log() {
 }
 
 async fn emit_span() {
-    let tracer = tracer_provider()
-        .tracer_builder("trace-example")
-        .with_version("v1")
-        .with_schema_url("schema_url")
-        .with_attributes([KeyValue::new("scope_key", "scope_value")])
-        .build();
-    let mut span1 = tracer.start("example-span-1");
+    let mut span1 = tracer_span(SpanBuilder::from_name("example-span-1"), None);
     span1.set_attribute(KeyValue::new("attribute_key1", "attribute_value1"));
     span1.set_attribute(KeyValue::new("attribute_key2", "attribute_value2"));
     span1.add_event(
@@ -188,79 +182,44 @@ mod logs;
 mod metrics;
 mod trace;
 
-pub use logs::logger_provider;
-pub use metrics::meter_provider;
 use opentelemetry::global;
-pub use opentelemetry::global::{
-    meter,
-    meter_with_version,
-    tracer,
-    tracer_provider,
-    BoxedSpan,
-    BoxedTracer,
-    GlobalMeterProvider,
-};
-pub use opentelemetry::metrics::{ Meter, MeterProvider as _ };
-pub use opentelemetry::trace::{
-    Span as _,
-    SpanContext,
-    SpanId,
-    TraceFlags,
-    TraceId,
-    TraceState,
-    Tracer as _,
-    TracerProvider as _,
-};
-pub use opentelemetry::{
-    Array,
-    InstrumentationLibrary,
-    InstrumentationLibraryBuilder,
-    Key,
-    KeyValue,
-    Value,
-};
 use opentelemetry_sdk::Resource;
-pub use opentelemetry_sdk::{
-    logs::BatchConfig as BatchLogConfig,
-    trace::BatchConfig as BatchTraceConfig,
-};
-use std::sync::{ Mutex, OnceLock };
-
+use std::sync::{Mutex, OnceLock};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::EnvFilter;
 
 pub use _tracing::*;
-
+pub use logs::*;
+pub use metrics::*;
+pub use opentelemetry::global::{
+    meter, meter_with_version, BoxedSpan, BoxedTracer, GlobalMeterProvider,
+};
+pub use opentelemetry::metrics::{Meter, MeterProvider as _};
+pub use opentelemetry::trace::{
+    Span as _, SpanContext, SpanId, TraceFlags, TraceId, TraceState, Tracer as _,
+    TracerProvider as _,
+};
+pub use opentelemetry::{
+    Array, InstrumentationLibrary, InstrumentationLibraryBuilder, Key, KeyValue, Value,
+};
+pub use trace::*;
 mod _tracing {
     pub use tracing;
     // Attribute Macros
     pub use tracing::instrument;
     // Macros
     pub use tracing::{
-        debug,
-        debug_span,
-        enabled,
-        error,
-        error_span,
-        event,
-        event_enabled,
-        info,
-        info_span,
-        span,
-        span_enabled,
-        trace,
-        trace_span,
-        warn,
-        warn_span,
+        debug, debug_span, enabled, error, error_span, event, event_enabled, info, info_span, span,
+        span_enabled, trace, trace_span, warn, warn_span,
     };
-    pub use tracing::{ Instrument, Level };
+    pub use tracing::{Instrument, Level};
 }
 
 static RESOURCE: OnceLock<Resource> = OnceLock::new();
 
 /// OpenTelemetry initialization configuration.
-#[derive(Debug, getset::WithSetters)]
+#[derive(Debug, getset2::WithSetters)]
 #[getset(set_with = "pub")]
 pub struct InitConfig {
     /// Service name
@@ -275,6 +234,8 @@ pub struct InitConfig {
     batch_log_config: Option<BatchLogConfig>,
     /// If the batch trace configuration is configured, batch reporting will be enabled.
     batch_trace_config: Option<BatchTraceConfig>,
+    /// Tracer Provider Config.
+    tracer_provider_config: TracerProviderConfig,
 }
 
 impl InitConfig {
@@ -286,6 +247,7 @@ impl InitConfig {
             stdout_exporter: cfg!(debug_assertions),
             batch_log_config: Default::default(),
             batch_trace_config: Default::default(),
+            tracer_provider_config: Default::default(),
         }
     }
 }
@@ -302,6 +264,7 @@ macro_rules! default_config {
 
 static INIT: Mutex<bool> = Mutex::new(false);
 
+
 /// Initialize OpenTelemetry.
 pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
     let mut guard = INIT.lock().unwrap();
@@ -312,27 +275,28 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
 
     let mut kvs = vec![];
     if !init_config.service_name.is_empty() {
-        kvs.push(
-            KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-                init_config.service_name
-            )
-        );
+        kvs.push(KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+            init_config.service_name,
+        ));
     }
     if !init_config.service_version.is_empty() {
-        kvs.push(
-            KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
-                init_config.service_version
-            )
-        );
+        kvs.push(KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+            init_config.service_version,
+        ));
     }
-    RESOURCE.set(Resource::default().merge(&Resource::new(kvs))).unwrap();
+    RESOURCE
+        .set(Resource::default().merge(&Resource::new(kvs)))
+        .unwrap();
 
     init_logs_and_trace(
         init_config.stdout_exporter,
         init_config.batch_log_config,
-        init_config.batch_trace_config
+        init_config.batch_trace_config,
+        init_config
+            .tracer_provider_config
+            .with_resource(RESOURCE.get().unwrap().clone()),
     )?;
     metrics::init_metrics(init_config.stdout_exporter)?;
 
@@ -342,20 +306,25 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
 fn init_logs_and_trace(
     use_stdout_exporter: bool,
     batch_log_config: Option<BatchLogConfig>,
-    batch_trace_config: Option<BatchTraceConfig>
+    batch_trace_config: Option<BatchTraceConfig>,
+    tracer_provider_config: TracerProviderConfig,
 ) -> anyhow::Result<()> {
-    let env_filter_layer = EnvFilter::try_from_default_env().or_else(|_|
-        EnvFilter::try_new("info")
-    )?;
+    let env_filter_layer =
+        EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
 
-    let tracer = trace::init_trace(use_stdout_exporter, batch_trace_config)?;
+    let tracer = trace::init_trace(
+        use_stdout_exporter,
+        batch_trace_config,
+        tracer_provider_config,
+    )?;
     let tracer_layer = OpenTelemetryLayer::new(tracer);
 
-    let subscriber = tracing_subscriber::registry().with(env_filter_layer).with(tracer_layer);
+    let subscriber = tracing_subscriber::registry()
+        .with(env_filter_layer)
+        .with(tracer_layer);
 
     if use_stdout_exporter {
-        let fmt_layer = tracing_subscriber::fmt
-            ::layer()
+        let fmt_layer = tracing_subscriber::fmt::layer()
             .with_target(true)
             .with_file(true)
             .with_line_number(true)
