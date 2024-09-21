@@ -1,12 +1,14 @@
 use crate::RESOURCE;
 
 use opentelemetry::global;
-use opentelemetry_sdk::metrics::reader::{DefaultAggregationSelector, DefaultTemporalitySelector};
+use opentelemetry_sdk::metrics::reader::{ DefaultAggregationSelector, DefaultTemporalitySelector };
 use opentelemetry_sdk::metrics::PeriodicReader;
 pub use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_stdout::MetricsExporter;
 use std::sync::OnceLock;
+pub use opentelemetry::metrics::{ Meter, MeterProvider as _ };
+pub use opentelemetry::global::{ meter, meter_with_version };
 
 // OTEL_METRIC_EXPORT_INTERVAL
 // OTEL_METRIC_EXPORT_TIMEOUT
@@ -31,11 +33,12 @@ pub(crate) fn init_metrics(use_stdout_exporter: bool) -> anyhow::Result<()> {
         let exporter = MetricsExporter::default();
         PeriodicReader::builder(exporter, Tokio).build()
     } else {
-        let exporter = opentelemetry_otlp::new_exporter()
+        let exporter = opentelemetry_otlp
+            ::new_exporter()
             .tonic()
             .build_metrics_exporter(
                 Box::new(DefaultAggregationSelector::new()),
-                Box::new(DefaultTemporalitySelector::new()),
+                Box::new(DefaultTemporalitySelector::new())
             )?;
         PeriodicReader::builder(exporter, Tokio).build()
     };

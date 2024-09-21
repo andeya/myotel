@@ -1,17 +1,32 @@
-use opentelemetry::global;
-pub use opentelemetry::trace::SpanBuilder;
-use opentelemetry::trace::Tracer as _;
-use opentelemetry::trace::TracerProvider as _;
-use opentelemetry::trace::{SpanId, TraceId};
+pub use opentelemetry::trace::{
+    Span as _,
+    SpanContext,
+    SpanId,
+    TraceFlags,
+    TraceId,
+    TraceState,
+    Tracer as _,
+    TracerProvider as _,
+    SpanBuilder,
+    mark_span_as_active,
+    get_active_span,
+    FutureExt,
+    TraceContextExt,
+    WithContext,
+};
 pub use opentelemetry::Context;
-use opentelemetry_sdk::runtime::Tokio;
 pub use opentelemetry_sdk::trace::IdGenerator;
 pub use opentelemetry_sdk::trace::RandomIdGenerator;
 pub use opentelemetry_sdk::{
-    trace::BatchConfig as BatchTraceConfig, trace::Config as TracerProviderConfig,
-    trace::Span as TraceSpan, trace::Tracer,
+    trace::BatchConfig as BatchTraceConfig,
+    trace::Config as TracerProviderConfig,
+    trace::Span as TraceSpan,
+    trace::Tracer,
 };
-use opentelemetry_sdk::{trace::BatchSpanProcessor, trace::TracerProvider};
+
+use opentelemetry::global;
+use opentelemetry_sdk::runtime::Tokio;
+use opentelemetry_sdk::{ trace::BatchSpanProcessor, trace::TracerProvider };
 use opentelemetry_stdout::SpanExporter;
 use std::fmt::Debug;
 use std::sync::OnceLock;
@@ -30,7 +45,7 @@ pub fn tracer() -> &'static Tracer {
 pub(crate) fn init_trace(
     use_stdout_exporter: bool,
     batch_trace_config: Option<BatchTraceConfig>,
-    tracer_provider_config: TracerProviderConfig,
+    tracer_provider_config: TracerProviderConfig
 ) -> anyhow::Result<Tracer> {
     let mut tracer_provider = TracerProvider::builder();
     if use_stdout_exporter {
@@ -44,9 +59,7 @@ pub(crate) fn init_trace(
             tracer_provider = tracer_provider.with_simple_exporter(span_exporter);
         }
     } else {
-        let span_exporter = opentelemetry_otlp::new_exporter()
-            .tonic()
-            .build_span_exporter()?;
+        let span_exporter = opentelemetry_otlp::new_exporter().tonic().build_span_exporter()?;
         if let Some(batch_trace_config) = batch_trace_config {
             let batch = BatchSpanProcessor::builder(span_exporter, Tokio)
                 .with_batch_config(batch_trace_config)
@@ -57,8 +70,9 @@ pub(crate) fn init_trace(
         }
     }
 
-    let tracer_provider: TracerProvider =
-        tracer_provider.with_config(tracer_provider_config).build();
+    let tracer_provider: TracerProvider = tracer_provider
+        .with_config(tracer_provider_config)
+        .build();
 
     let tracer = tracer_provider
         .tracer_builder("myotel")
@@ -81,6 +95,17 @@ pub fn tracer_span(builder: SpanBuilder, parent_cx: Option<&Context>) -> TraceSp
         tracer.build(builder)
     }
 }
+
+/// Extension trait allowing futures, streams, and sinks to be traced with a span.
+pub trait FutureTraceExt: FutureExt {
+    /// Pass the span of opentelemetry to the current context of tracing.
+    fn with_current_context_span(self, otel_span: TraceSpan) -> WithContext<Self> {
+        let otel_cx = Context::current_with_span(otel_span);
+        self.with_context(otel_cx)
+    }
+}
+
+impl<T: FutureExt> FutureTraceExt for T {}
 
 /// Generate trace_id using the Snowflake-inspired ULIDs (SULIDs),
 /// and generate span_id using a random number generator.

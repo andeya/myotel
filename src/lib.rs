@@ -47,51 +47,54 @@ async fn emit_log() {
 }
 
 async fn emit_span() {
-    let mut span1 = tracer_span(SpanBuilder::from_name("example-span-1"), None);
-    span1.set_attribute(KeyValue::new("attribute_key1", "attribute_value1"));
-    span1.set_attribute(KeyValue::new("attribute_key2", "attribute_value2"));
-    span1.add_event(
+    let mut otel_span = tracer_span(SpanBuilder::from_name("example-span-1"), None);
+    otel_span.set_attribute(KeyValue::new("attribute_key1", "attribute_value1"));
+    otel_span.set_attribute(KeyValue::new("attribute_key2", "attribute_value2"));
+    otel_span.add_event(
         "example-event-name-1",
-        vec![KeyValue::new("event_attribute1", "event_value1")],
+        vec![KeyValue::new("event_attribute1", "event_value1")]
     );
-    span1.add_link(
+    otel_span.add_link(
         SpanContext::new(
             TraceId::from_hex("58406520a006649127e371903a2de979").expect("invalid"),
             SpanId::from_hex("b6d7d7f6d7d6d7f6").expect("invalid"),
             TraceFlags::default(),
             false,
-            TraceState::NONE,
+            TraceState::NONE
         ),
         vec![
             KeyValue::new("link_attribute1", "link_value1"),
-            KeyValue::new("link_attribute2", "link_value2"),
-        ],
+            KeyValue::new("link_attribute2", "link_value2")
+        ]
     );
 
-    span1.add_link(
+    otel_span.add_link(
         SpanContext::new(
             TraceId::from_hex("23401120a001249127e371903f2de971").expect("invalid"),
             SpanId::from_hex("cd37d765d743d7f6").expect("invalid"),
             TraceFlags::default(),
             false,
-            TraceState::NONE,
+            TraceState::NONE
         ),
         vec![
             KeyValue::new("link_attribute1", "link_value1"),
-            KeyValue::new("link_attribute2", "link_value2"),
-        ],
+            KeyValue::new("link_attribute2", "link_value2")
+        ]
     );
-    span1.end();
+    (
+        async {
+            let _ = (
+                {
+                    info!("event-span-3");
+                }
+            ).instrument(info_span!("instrument span"));
 
-    let _ = {
-        info!("event-span-3");
-    }
-    .instrument(info_span!("instrument span"));
-
-    info!("event-name-20");
-    let span2 = span!(Level::INFO, "example-span-2");
-    let _enter = span2.enter();
-    info!("event-name-2");
+            info!("event-name-20");
+            let span2 = span!(Level::INFO, "example-span-2");
+            let _enter = span2.enter();
+            info!("event-name-2");
+        }
+    ).with_current_context_span(otel_span).await;
 }
 
 async fn emit_metrics() {
@@ -100,78 +103,18 @@ async fn emit_metrics() {
     let meter = meter_provider().meter("stdout-example");
     // let meter = meter("stdout-example");
     let c = meter.u64_counter("example_counter").init();
-    c.add(
-        1,
-        &[
-            KeyValue::new("name", "apple"),
-            KeyValue::new("color", "green"),
-        ],
-    );
-    c.add(
-        1,
-        &[
-            KeyValue::new("name", "apple"),
-            KeyValue::new("color", "green"),
-        ],
-    );
-    c.add(
-        2,
-        &[
-            KeyValue::new("name", "apple"),
-            KeyValue::new("color", "red"),
-        ],
-    );
-    c.add(
-        1,
-        &[
-            KeyValue::new("name", "banana"),
-            KeyValue::new("color", "yellow"),
-        ],
-    );
-    c.add(
-        11,
-        &[
-            KeyValue::new("name", "banana"),
-            KeyValue::new("color", "yellow"),
-        ],
-    );
+    c.add(1, &[KeyValue::new("name", "apple"), KeyValue::new("color", "green")]);
+    c.add(1, &[KeyValue::new("name", "apple"), KeyValue::new("color", "green")]);
+    c.add(2, &[KeyValue::new("name", "apple"), KeyValue::new("color", "red")]);
+    c.add(1, &[KeyValue::new("name", "banana"), KeyValue::new("color", "yellow")]);
+    c.add(11, &[KeyValue::new("name", "banana"), KeyValue::new("color", "yellow")]);
 
     let h = meter.f64_histogram("example_histogram").init();
-    h.record(
-        1.0,
-        &[
-            KeyValue::new("name", "apple"),
-            KeyValue::new("color", "green"),
-        ],
-    );
-    h.record(
-        1.0,
-        &[
-            KeyValue::new("name", "apple"),
-            KeyValue::new("color", "green"),
-        ],
-    );
-    h.record(
-        2.0,
-        &[
-            KeyValue::new("name", "apple"),
-            KeyValue::new("color", "red"),
-        ],
-    );
-    h.record(
-        1.0,
-        &[
-            KeyValue::new("name", "banana"),
-            KeyValue::new("color", "yellow"),
-        ],
-    );
-    h.record(
-        11.0,
-        &[
-            KeyValue::new("name", "banana"),
-            KeyValue::new("color", "yellow"),
-        ],
-    );
+    h.record(1.0, &[KeyValue::new("name", "apple"), KeyValue::new("color", "green")]);
+    h.record(1.0, &[KeyValue::new("name", "apple"), KeyValue::new("color", "green")]);
+    h.record(2.0, &[KeyValue::new("name", "apple"), KeyValue::new("color", "red")]);
+    h.record(1.0, &[KeyValue::new("name", "banana"), KeyValue::new("color", "yellow")]);
+    h.record(11.0, &[KeyValue::new("name", "banana"), KeyValue::new("color", "yellow")]);
 }
 ```
 */
@@ -184,7 +127,7 @@ mod trace;
 
 use opentelemetry::global;
 use opentelemetry_sdk::Resource;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{ Mutex, OnceLock };
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::EnvFilter;
@@ -192,16 +135,14 @@ use tracing_subscriber::EnvFilter;
 pub use _tracing::*;
 pub use logs::*;
 pub use metrics::*;
-pub use opentelemetry::global::{
-    meter, meter_with_version, BoxedSpan, BoxedTracer, GlobalMeterProvider,
-};
-pub use opentelemetry::metrics::{Meter, MeterProvider as _};
-pub use opentelemetry::trace::{
-    Span as _, SpanContext, SpanId, TraceFlags, TraceId, TraceState, Tracer as _,
-    TracerProvider as _,
-};
+
 pub use opentelemetry::{
-    Array, InstrumentationLibrary, InstrumentationLibraryBuilder, Key, KeyValue, Value,
+    Array,
+    InstrumentationLibrary,
+    InstrumentationLibraryBuilder,
+    Key,
+    KeyValue,
+    Value,
 };
 pub use trace::*;
 mod _tracing {
@@ -210,10 +151,23 @@ mod _tracing {
     pub use tracing::instrument;
     // Macros
     pub use tracing::{
-        debug, debug_span, enabled, error, error_span, event, event_enabled, info, info_span, span,
-        span_enabled, trace, trace_span, warn, warn_span,
+        debug,
+        debug_span,
+        enabled,
+        error,
+        error_span,
+        event,
+        event_enabled,
+        info,
+        info_span,
+        span,
+        span_enabled,
+        trace,
+        trace_span,
+        warn,
+        warn_span,
     };
-    pub use tracing::{Instrument, Level};
+    pub use tracing::{ Instrument, Level };
 }
 
 static RESOURCE: OnceLock<Resource> = OnceLock::new();
@@ -264,7 +218,6 @@ macro_rules! default_config {
 
 static INIT: Mutex<bool> = Mutex::new(false);
 
-
 /// Initialize OpenTelemetry.
 pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
     let mut guard = INIT.lock().unwrap();
@@ -275,28 +228,28 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
 
     let mut kvs = vec![];
     if !init_config.service_name.is_empty() {
-        kvs.push(KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            init_config.service_name,
-        ));
+        kvs.push(
+            KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+                init_config.service_name
+            )
+        );
     }
     if !init_config.service_version.is_empty() {
-        kvs.push(KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
-            init_config.service_version,
-        ));
+        kvs.push(
+            KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+                init_config.service_version
+            )
+        );
     }
-    RESOURCE
-        .set(Resource::default().merge(&Resource::new(kvs)))
-        .unwrap();
+    RESOURCE.set(Resource::default().merge(&Resource::new(kvs))).unwrap();
 
     init_logs_and_trace(
         init_config.stdout_exporter,
         init_config.batch_log_config,
         init_config.batch_trace_config,
-        init_config
-            .tracer_provider_config
-            .with_resource(RESOURCE.get().unwrap().clone()),
+        init_config.tracer_provider_config.with_resource(RESOURCE.get().unwrap().clone())
     )?;
     metrics::init_metrics(init_config.stdout_exporter)?;
 
@@ -307,24 +260,24 @@ fn init_logs_and_trace(
     use_stdout_exporter: bool,
     batch_log_config: Option<BatchLogConfig>,
     batch_trace_config: Option<BatchTraceConfig>,
-    tracer_provider_config: TracerProviderConfig,
+    tracer_provider_config: TracerProviderConfig
 ) -> anyhow::Result<()> {
-    let env_filter_layer =
-        EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
+    let env_filter_layer = EnvFilter::try_from_default_env().or_else(|_|
+        EnvFilter::try_new("info")
+    )?;
 
     let tracer = trace::init_trace(
         use_stdout_exporter,
         batch_trace_config,
-        tracer_provider_config,
+        tracer_provider_config
     )?;
     let tracer_layer = OpenTelemetryLayer::new(tracer);
 
-    let subscriber = tracing_subscriber::registry()
-        .with(env_filter_layer)
-        .with(tracer_layer);
+    let subscriber = tracing_subscriber::registry().with(env_filter_layer).with(tracer_layer);
 
     if use_stdout_exporter {
-        let fmt_layer = tracing_subscriber::fmt::layer()
+        let fmt_layer = tracing_subscriber::fmt
+            ::layer()
             .with_target(true)
             .with_file(true)
             .with_line_number(true)

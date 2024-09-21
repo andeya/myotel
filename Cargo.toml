@@ -1,6 +1,6 @@
 [package]
 name = "myotel"
-version = "0.1.9"
+version = "0.2.0"
 edition = "2021"
 description = "A foolproof best practice for initializing the integration of OpenTelemetry with the `tracing` library, providing support for logs, metrics, and trace."
 authors = ["Andeya Lee <andeyalee@outlook.com>"]
