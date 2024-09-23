@@ -132,10 +132,11 @@ use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::EnvFilter;
 
+pub use opentelemetry::global::{ get_text_map_propagator, set_text_map_propagator };
+pub use opentelemetry_semantic_conventions as semantic_conventions;
 pub use _tracing::*;
 pub use logs::*;
 pub use metrics::*;
-
 pub use opentelemetry::{
     Array,
     InstrumentationLibrary,
@@ -226,19 +227,18 @@ pub async fn init_otel(init_config: InitConfig) -> anyhow::Result<bool> {
     }
     *guard = true;
 
-    let mut kvs = vec![];
+    let mut kvs = vec![
+        KeyValue::new(semantic_conventions::resource::TELEMETRY_SDK_LANGUAGE, "rust")
+    ];
     if !init_config.service_name.is_empty() {
         kvs.push(
-            KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-                init_config.service_name
-            )
+            KeyValue::new(semantic_conventions::resource::SERVICE_NAME, init_config.service_name)
         );
     }
     if !init_config.service_version.is_empty() {
         kvs.push(
             KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+                semantic_conventions::resource::SERVICE_VERSION,
                 init_config.service_version
             )
         );

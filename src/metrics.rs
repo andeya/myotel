@@ -10,6 +10,11 @@ use std::sync::OnceLock;
 pub use opentelemetry::metrics::{ Meter, MeterProvider as _ };
 pub use opentelemetry::global::{ meter, meter_with_version };
 
+/// Re-export opentelemetry::metrics;
+pub mod otel_metrics {
+    pub use opentelemetry::metrics::*;
+}
+
 // OTEL_METRIC_EXPORT_INTERVAL
 // OTEL_METRIC_EXPORT_TIMEOUT
 

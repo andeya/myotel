@@ -32,6 +32,11 @@ use std::fmt::Debug;
 use std::sync::OnceLock;
 use sulid::SulidGenerator;
 
+/// Re-export opentelemetry::trace;
+pub mod otel_trace {
+    pub use opentelemetry::trace::*;
+}
+
 // const INSTRUMENTATION_LIBRARY_NAME: &str = "opentelemetry-appender-tracing";
 
 /// The global `Tracer` singleton.
