@@ -1,35 +1,23 @@
 pub use opentelemetry::trace::{
-    Span as _,
-    SpanContext,
-    SpanId,
-    TraceFlags,
-    TraceId,
-    TraceState,
-    Tracer as _,
-    TracerProvider as _,
-    SpanBuilder,
-    mark_span_as_active,
-    get_active_span,
-    FutureExt,
-    TraceContextExt,
+    get_active_span, mark_span_as_active, FutureExt, Span as _, SpanBuilder, SpanContext, SpanId,
+    TraceContextExt, TraceFlags, TraceId, TraceState, Tracer as OtelTracer, TracerProvider as _,
     WithContext,
 };
 pub use opentelemetry::Context;
 pub use opentelemetry_sdk::trace::IdGenerator;
 pub use opentelemetry_sdk::trace::RandomIdGenerator;
 pub use opentelemetry_sdk::{
-    trace::BatchConfig as BatchTraceConfig,
-    trace::Config as TracerProviderConfig,
-    trace::Span as TraceSpan,
-    trace::Tracer,
+    trace::BatchConfig as BatchTraceConfig, trace::Config as TracerProviderConfig,
+    trace::Span as TraceSpan, trace::Tracer,
 };
 
 use opentelemetry::global;
 use opentelemetry_sdk::runtime::Tokio;
-use opentelemetry_sdk::{ trace::BatchSpanProcessor, trace::TracerProvider };
+use opentelemetry_sdk::{trace::BatchSpanProcessor, trace::TracerProvider};
 use opentelemetry_stdout::SpanExporter;
 use std::fmt::Debug;
-use std::sync::OnceLock;
+use std::ops::Deref;
+use std::sync::{Arc, OnceLock};
 use sulid::SulidGenerator;
 
 /// Re-export opentelemetry::trace;
@@ -42,15 +30,21 @@ pub mod otel_trace {
 /// The global `Tracer` singleton.
 static GLOBAL_TRACER: OnceLock<Tracer> = OnceLock::new();
 
-/// Returns the global SdkMeterProvider
+/// Returns the global &'static Tracer
 pub fn tracer() -> &'static Tracer {
     GLOBAL_TRACER.get().unwrap()
+}
+
+/// Returns the global Arc<Tracer>
+#[inline]
+pub fn arc_tracer() -> ArcTracer {
+    tracer().into()
 }
 
 pub(crate) fn init_trace(
     use_stdout_exporter: bool,
     batch_trace_config: Option<BatchTraceConfig>,
-    tracer_provider_config: TracerProviderConfig
+    tracer_provider_config: TracerProviderConfig,
 ) -> anyhow::Result<Tracer> {
     let mut tracer_provider = TracerProvider::builder();
     if use_stdout_exporter {
@@ -64,7 +58,9 @@ pub(crate) fn init_trace(
             tracer_provider = tracer_provider.with_simple_exporter(span_exporter);
         }
     } else {
-        let span_exporter = opentelemetry_otlp::new_exporter().tonic().build_span_exporter()?;
+        let span_exporter = opentelemetry_otlp::new_exporter()
+            .tonic()
+            .build_span_exporter()?;
         if let Some(batch_trace_config) = batch_trace_config {
             let batch = BatchSpanProcessor::builder(span_exporter, Tokio)
                 .with_batch_config(batch_trace_config)
@@ -75,9 +71,8 @@ pub(crate) fn init_trace(
         }
     }
 
-    let tracer_provider: TracerProvider = tracer_provider
-        .with_config(tracer_provider_config)
-        .build();
+    let tracer_provider: TracerProvider =
+        tracer_provider.with_config(tracer_provider_config).build();
 
     let tracer = tracer_provider
         .tracer_builder("myotel")
@@ -135,5 +130,36 @@ impl Debug for MyIdGenerator {
             .field("trace_id", &"<sulid::SulidGenerator>")
             .field("span_id", &self.span_id)
             .finish()
+    }
+}
+
+/// ArcTracer implement: Tracer + Sync + Send + 'static
+pub struct ArcTracer(Arc<&'static Tracer>);
+
+impl From<&'static Tracer> for ArcTracer {
+    fn from(value: &'static Tracer) -> Self {
+        Self(Arc::new(value))
+    }
+}
+
+impl From<Arc<&'static Tracer>> for ArcTracer {
+    fn from(value: Arc<&'static Tracer>) -> Self {
+        Self(value)
+    }
+}
+
+impl Deref for ArcTracer {
+    type Target = Tracer;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl OtelTracer for ArcTracer {
+    type Span = <Tracer as OtelTracer>::Span;
+
+    fn build_with_context(&self, builder: SpanBuilder, parent_cx: &Context) -> Self::Span {
+        self.0.build_with_context(builder, parent_cx)
     }
 }
