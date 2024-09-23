@@ -42,6 +42,8 @@ pub fn arc_tracer() -> ArcTracer {
 }
 
 pub(crate) fn init_trace(
+    service_name: String,
+    service_version: String,
     use_stdout_exporter: bool,
     batch_trace_config: Option<BatchTraceConfig>,
     tracer_provider_config: TracerProviderConfig,
@@ -75,8 +77,8 @@ pub(crate) fn init_trace(
         tracer_provider.with_config(tracer_provider_config).build();
 
     let tracer = tracer_provider
-        .tracer_builder("myotel")
-        .with_version(env!("CARGO_PKG_VERSION"))
+        .tracer_builder(service_name)
+        .with_version(service_version)
         .build();
 
     global::set_tracer_provider(tracer_provider);
